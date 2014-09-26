@@ -273,7 +273,7 @@ int main(int argc, char **argv)
     // Cleaning
     free(line_buf.buffer);
     if(line_type[0] == 'p') regfree(&line_regex);
-    if(have_read_stdin && fclose (stdin) == EOF) exit(EXIT_FAILURE);
+    if(have_read_stdin && fclose(stdin) == EOF) exit(EXIT_FAILURE);
 
     exit(ok ? EXIT_SUCCESS : EXIT_FAILURE);
     return EXIT_SUCCESS;
