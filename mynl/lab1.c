@@ -1,5 +1,5 @@
 // mynl -- number lines of files
-// Written by Faraz Fallahi (faraz@siu.edu)
+// Faraz Fallahi (faraz@siu.edu)
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,11 +16,11 @@
 
 //----------------------------------------------------------------------
 
-// A 'struct linebuffer' holds a line of text.
+// struct linebuffer holds a line of text.
 struct linebuffer
 {
-    size_t size;   // Allocated
-    size_t length; // Used
+    size_t size;   // allocated
+    size_t length; // used
     char *buffer;
 };
 
@@ -43,7 +43,7 @@ struct linebuffer *readlinebuffer(struct linebuffer *linebuffer, FILE *stream, c
 
     do
     {
-        c = getc(stream);
+        c = fgetc(stream);
 
         if(c == EOF)
         {
@@ -57,8 +57,8 @@ struct linebuffer *readlinebuffer(struct linebuffer *linebuffer, FILE *stream, c
         if(p == end)
         {
             size_t oldsize = linebuffer->size;
-            linebuffer->size += 64;
-            buffer = realloc(buffer, linebuffer->size); // not sure
+            linebuffer->size += 1024;
+            buffer = realloc(buffer, linebuffer->size); //FIXME
             p = buffer + oldsize;
             linebuffer->buffer = buffer;
             end = buffer + linebuffer->size;
@@ -110,7 +110,7 @@ static void print_lineno(void)
 // Process a text line in 'line_buf'.
 static void proc_text(void)
 {
-    switch(*line_type)
+    switch(line_type[0])
     {
     case 'a':
         print_lineno();
@@ -125,7 +125,7 @@ static void proc_text(void)
         fputs(print_no_line_fmt, stdout);
         break;
     case 'p':
-        switch(regexec(&line_regex, line_buf.buffer, 0, NULL, 0)) // FIXME
+        switch(regexec(&line_regex, line_buf.buffer, 0, NULL, 0)) //FIXME
         {
         case 0:
             print_lineno();
@@ -134,7 +134,9 @@ static void proc_text(void)
             fputs(print_no_line_fmt, stdout);
             break;
         default:
-            fprintf(stderr, "error in regular expression search");
+            //regerror(); //TODO
+            //fprintf(stderr, "error in regular expression search.\n");
+            perror("error in regular expression search.");
             exit(EXIT_FAILURE);
             break;
         }
@@ -177,7 +179,7 @@ static bool nl_file(char const *file)
     if(STREQ(file, "-"))
         clearerr(stream);
     else
-        if(fclose (stream) == EOF)
+        if(fclose(stream) == EOF)
             return false;
 
     return true;
@@ -190,7 +192,7 @@ static bool build_type_arg()
 {
     bool rval = true;
 
-    switch(*optarg)
+    switch(optarg[0])
     {
     case 'a':
     case 't':
@@ -201,7 +203,9 @@ static bool build_type_arg()
         line_type = optarg++;
         if(regcomp(&line_regex, optarg, 0)) // flags?!
         {
+            //regerror(); //TODO
             fprintf(stderr, "error in regular expression compile. %s\n", optarg);
+            //perror("error in regular expression compile.");
             exit(EXIT_FAILURE);
         }
         break;
@@ -264,6 +268,11 @@ int main(int argc, char **argv)
     else
         for (; optind < argc; optind++)
             ok &= nl_file(argv[optind]);
+
+    // Cleaning
+    free(line_buf.buffer);
+    if(line_type[0] == 'p') regfree(&line_regex);
+    if(have_read_stdin && fclose (stdin) == EOF) exit(EXIT_FAILURE);
 
     exit(ok ? EXIT_SUCCESS : EXIT_FAILURE);
     return EXIT_SUCCESS;
