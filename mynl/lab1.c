@@ -216,6 +216,7 @@ static bool build_type_arg()
     return rval;
 }
 
+// Parse command arguments
 static bool parse_args(int argc, char **argv)
 {
     int c;
@@ -263,11 +264,11 @@ int main(int argc, char **argv)
     print_no_line_fmt[lineno_width + len] = '\0';
 
     // Main processing.
-    if (optind == argc)
+    if(optind == argc)
         ok = nl_file("-"); // No input files. Read from stdin.
     else
-        for (; optind < argc; optind++)
-            ok &= nl_file(argv[optind]);
+        while(optind < argc)
+            ok &= nl_file(argv[optind++]);
 
     // Cleaning
     free(line_buf.buffer);
