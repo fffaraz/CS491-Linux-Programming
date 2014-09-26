@@ -17,7 +17,7 @@
 //----------------------------------------------------------------------
 
 // struct linebuffer holds a line of text.
-struct linebuffer
+struct LineBuffer
 {
     size_t size;   // allocated
     size_t length; // used
@@ -32,7 +32,7 @@ struct linebuffer
  * Return NULL when stream is empty or upon error.
  * Otherwise, return LINEBUFFER.
  */
-struct linebuffer *readlinebuffer(struct linebuffer *linebuffer, FILE *stream, char delimiter)
+struct LineBuffer *readlinebuffer(struct LineBuffer *linebuffer, FILE *stream, char delimiter)
 {
     int c;
     char *buffer = linebuffer->buffer;
@@ -75,7 +75,7 @@ struct linebuffer *readlinebuffer(struct linebuffer *linebuffer, FILE *stream, c
 //----------------------------------------------------------------------
 
 // Input line buffer.
-static struct linebuffer line_buf;
+static struct LineBuffer line_buf;
 
 // printf format string for unnumbered lines.
 static char *print_no_line_fmt = NULL;
@@ -253,7 +253,7 @@ int main(int argc, char **argv)
     if(!ok) exit(EXIT_FAILURE);
 
     // Initialize the input buffer.
-    memset(&line_buf, 0, sizeof(struct linebuffer));
+    memset(&line_buf, 0, sizeof(struct LineBuffer));
 
     // Initialize the printf format for unnumbered lines.
     size_t len;
