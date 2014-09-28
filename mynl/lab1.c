@@ -6,6 +6,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <regex.h>
+#include <errno.h>
 
 #define bool _Bool
 #define true (1)
@@ -167,7 +168,8 @@ static bool nl_file(char const *file)
         stream = fopen(file, "r");
         if(stream == NULL)
         {
-            fprintf(stderr, "can't open file %s\n", file);
+            //fprintf(stderr, "can't open file %s\n", file);
+            perror(strerror(errno));
             return false;
         }
     }
