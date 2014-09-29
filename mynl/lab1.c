@@ -143,6 +143,8 @@ static void proc_text(void)
         }
     }
 
+    //line_buf.buffer[line_buf.length] = '\0';
+    //fputs(line_buf.buffer, stdout);
     fwrite(line_buf.buffer, sizeof(char), line_buf.length, stdout);
 }
 
