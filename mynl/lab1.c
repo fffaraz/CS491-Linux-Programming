@@ -178,7 +178,11 @@ static bool nl_file(char const *file)
 
     process_file(stream);
 
-    if(ferror(stream)) return false;
+    if(ferror(stream))
+    {
+        perror(strerror(errno)); //TODO
+        return false;
+    }
 
     if(STREQ(file, "-"))
         clearerr(stream);
