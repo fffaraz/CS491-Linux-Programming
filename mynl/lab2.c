@@ -85,7 +85,7 @@ MY_FILE* my_fopen(const char *filename, const char *modes)
     (void)modes; // unused parameter
 
     int fd = open(filename, O_RDONLY);
-    if(fd == - 1) return NULL;
+    if(fd == -1) return NULL;
 
     MY_FILE *file = calloc(1, sizeof(MY_FILE));
     file->fd = fd;
