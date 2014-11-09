@@ -126,9 +126,11 @@ int readStat(pid_t pid, struct StatStuff *s)
     }
     return 0;
 }
+
 void printStat(FILE *out, struct StatStuff *stuff)
 {
     fprintf(out,"pid = %d\n", stuff->pid);
+    /*
     fprintf(out,"comm = %s\n", stuff->comm);
     fprintf(out,"state = %c\n", stuff->state);
     fprintf(out,"ppid = %d\n", stuff->ppid);
@@ -141,11 +143,12 @@ void printStat(FILE *out, struct StatStuff *stuff)
     fprintf(out,"cminflt = %lu\n", stuff->cminflt);
     fprintf(out,"majflt = %lu\n", stuff->majflt);
     fprintf(out,"cmajflt = %lu\n", stuff->cmajflt);
+    */
     fprintf(out,"utime = %lu\n", stuff->utime);
     fprintf(out,"stime = %lu\n", stuff->stime);
+    return;
     fprintf(out,"cutime = %ld\n", stuff->cutime);
     fprintf(out,"cstime = %ld\n", stuff->cstime);
-    return;
     fprintf(out,"priority = %ld\n", stuff->priority);
     fprintf(out,"nice = %ld\n", stuff->nice);
     fprintf(out,"num_threads = %ld\n", stuff->num_threads);
@@ -194,7 +197,7 @@ void server(int *pipefd, char *filename)
     char buf4[BUFFER_SIZE];
 
     int size;
-    while((size = read(pipefd[0], buf1, BUFFER_SIZE)) > 0)
+    while((size = read(pipefd[0], buf1, BUFFER_SIZE)) > 0) // FIXME: BUG, BUG, BUG!
     {
         buf1[size] = '\0';
 
@@ -230,7 +233,6 @@ void server(int *pipefd, char *filename)
 void client(int *pipefd)
 {
     static const char * const mesformat  = "%d: Message: #%d: user: %.5f kernel: %.5f\n";
-    char buf[BUFFER_SIZE];
 
     // Child writes to pipe
     // Close unused read end
@@ -239,7 +241,9 @@ void client(int *pipefd)
     pid_t pid = getpid();
     srand(pid);
 
-    float div = 1; //sysconf(_SC_CLK_TCK);
+    float div = 1;
+    div = sysconf(_SC_CLK_TCK);
+    fprintf(stderr, "_SC_CLK_TCK : %d - %f \n", pid, div);
 
     for(int i = 1; i <= NUMBER_MESSAGES; i++)
     {
@@ -252,8 +256,9 @@ void client(int *pipefd)
         {
             perror("readStat");
         }
-        //printStat(stdout, &stat);
+        printStat(stderr, &stat);
 
+        char buf[BUFFER_SIZE];
         int len = snprintf(buf, BUFFER_SIZE, mesformat, pid, i, stat.utime/div, stat.stime/div);
         write(pipefd[1], buf, len);
     }
