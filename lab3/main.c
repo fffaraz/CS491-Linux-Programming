@@ -258,7 +258,7 @@ void client(int *pipefd)
         delay = (delay % MAXIMUM_SLEEP) + 1;
 
         //sleep(delay);
-        flag=1;
+        flag = 1;
         alarm(delay);
         while(flag);
 
