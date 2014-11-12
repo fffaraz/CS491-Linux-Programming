@@ -178,7 +178,6 @@ void printStat(FILE *out, struct StatStuff *stuff)
 
 //----------------------------------------------------------------------
 
-
 void server(int *pipefd, char *filename)
 {
     static const char * const logformat = "%s: %s";
@@ -230,6 +229,13 @@ void server(int *pipefd, char *filename)
     exit(EXIT_SUCCESS);
 }
 
+volatile sig_atomic_t flag = 1;
+
+void alarm_handler(int signal)
+{
+    flag = 0;
+}
+
 void client(int *pipefd)
 {
     static const char * const mesformat  = "%d: Message: #%d: user: %.5f kernel: %.5f\n";
@@ -238,25 +244,28 @@ void client(int *pipefd)
     // Close unused read end
     close(pipefd[0]);
 
+    signal(SIGALRM, alarm_handler);
     pid_t pid = getpid();
     srand(pid);
 
     float div = 1;
     div = sysconf(_SC_CLK_TCK);
-    fprintf(stderr, "_SC_CLK_TCK : %d - %f \n", pid, div);
+    //fprintf(stderr, "_SC_CLK_TCK : %d - %f \n", pid, div);
 
     for(int i = 1; i <= NUMBER_MESSAGES; i++)
     {
         unsigned int delay = random();
         delay = (delay % MAXIMUM_SLEEP) + 1;
-        sleep(delay);
+
+        //sleep(delay);
+        flag=1;
+        alarm(delay);
+        while(flag);
 
         struct StatStuff stat;
         if(!readStat(pid, &stat))
-        {
             perror("readStat");
-        }
-        printStat(stderr, &stat);
+        //printStat(stderr, &stat);
 
         char buf[BUFFER_SIZE];
         int len = snprintf(buf, BUFFER_SIZE, mesformat, pid, i, stat.utime/div, stat.stime/div);
@@ -301,6 +310,7 @@ int main(int argc, char **argv)
         }
         else
         {
+            // TODO
             setpgid(cpid, 0);
         }
     }
