@@ -1,4 +1,4 @@
-// lab3 - fork, pipes, log, etc.
+﻿// Lab 3 - fork, pipes, log server, etc.
 // Faraz Fallahi (faraz@siu.edu)
 
 #include <stdio.h>
@@ -16,7 +16,7 @@
 
 #define NUMBER_CLIENTS  5
 #define NUMBER_MESSAGES 5
-#define MAXIMUM_SLEEP   3
+#define MAXIMUM_SLEEP   8
 #define BUFFER_SIZE     1024
 
 //----------------------------------------------------------------------
@@ -31,7 +31,7 @@ struct StatStuff
     int session; // %d
     int tty_nr; // %d
     int tpgid; // %d
-    unsigned long flags; // %lu
+    unsigned long flags; // %lu OR %l
     unsigned long minflt; // %lu
     unsigned long cminflt; // %lu
     unsigned long majflt; // %lu
@@ -72,7 +72,7 @@ int readStat(pid_t pid, struct StatStuff *s)
     static const char * const procfile = "/proc/%d/stat";
     static const char * const format = "%d %s %c %d %d %d %d %d %lu %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %ld %ld %lu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %lu %lu %llu";
 
-    char buf[256];
+    char buf[128];
     sprintf(buf, procfile, pid);
 
     FILE *proc = fopen(buf, "r");
@@ -178,58 +178,7 @@ void printStat(FILE *out, struct StatStuff *stuff)
 
 //----------------------------------------------------------------------
 
-void server(int *pipefd, char *filename)
-{
-    static const char * const logformat = "%s: %s";
-
-    // Parent reads from pipe
-    // Close unused write end
-    close(pipefd[1]);
-
-    FILE *log = stdout;
-    if(filename[0] != '-' || filename[1] != '\0')
-        log = fopen(filename, "w");
-
-    char buf1[BUFFER_SIZE];
-    char buf2[BUFFER_SIZE];
-    char buf3[BUFFER_SIZE];
-    char buf4[BUFFER_SIZE];
-
-    int size;
-    while((size = read(pipefd[0], buf1, BUFFER_SIZE)) > 0) // FIXME: BUG, BUG, BUG!
-    {
-        buf1[size] = '\0';
-
-        time_t curtime;
-        char *strtime;
-
-#if 0
-        time(&curtime);
-        strtime = ctime(&curtime);
-        strtime[strlen(strtime) - 1] = '\0'; // skip that \n at the end.
-#else
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        curtime = tv.tv_sec;
-        strftime(buf3, BUFFER_SIZE, "%m-%d-%Y %T.", localtime(&curtime));
-        snprintf(buf4, BUFFER_SIZE, "%s%ld", buf3, tv.tv_usec);
-        strtime = buf4;
-#endif
-
-        size = snprintf(buf2, BUFFER_SIZE, logformat, strtime, buf1);
-        fputs(buf2, log);
-    }
-
-    close(pipefd[0]);
-    if(log != stdout)
-        fclose(log);
-
-    wait(NULL); // Wait for child
-    //killpg(0, SIGKILL);
-    exit(EXIT_SUCCESS);
-}
-
-volatile sig_atomic_t flag = 1;
+volatile sig_atomic_t flag;
 
 void alarm_handler(int signal)
 {
@@ -244,6 +193,7 @@ void client(int *pipefd)
     // Close unused read end
     close(pipefd[0]);
 
+    signal(SIGPIPE, SIG_IGN);
     signal(SIGALRM, alarm_handler);
     pid_t pid = getpid();
     srand(pid);
@@ -264,12 +214,30 @@ void client(int *pipefd)
 
         struct StatStuff stat;
         if(!readStat(pid, &stat))
-            perror("readStat");
-        //printStat(stderr, &stat);
+            perror("readStat failed");
+#ifdef DEBUG
+        printStat(stderr, &stat);
+#endif
 
         char buf[BUFFER_SIZE];
         int len = snprintf(buf, BUFFER_SIZE, mesformat, pid, i, stat.utime/div, stat.stime/div);
-        write(pipefd[1], buf, len);
+
+        /*
+        * POSIX.1-2001 says that write(2)s of less than PIPE_BUF bytes must be atomic.
+        * also it requires PIPE_BUF to be at least 512 bytes.
+        * On Linux, PIPE_BUF is 4096 bytes.
+       */
+        int size = write(pipefd[1], buf, len);
+        if(size < 0)
+        {
+            perror("Broken pipe");
+            break;
+        }
+        if(size != len)
+        {
+            perror("Write failed");
+            break;
+        }
     }
 
     close(pipefd[1]); // Reader will see EOF
@@ -278,13 +246,70 @@ void client(int *pipefd)
 
 //----------------------------------------------------------------------
 
+void server(int *pipefd, char *filename)
+{
+    static const char * const logformat = "%s: %s\n"; // don't worry, we won't have double \n at the end.
+
+    // Parent reads from pipe
+    // Close unused write end
+    close(pipefd[1]);
+
+    FILE *log = stdout;
+    if(filename[0] != '\0') // empty filename
+        log = fopen(filename, "w");
+
+    char buf1[BUFFER_SIZE]; // read buffer
+    char buf2[BUFFER_SIZE]; // result buffer
+
+    int size;
+    while((size = read(pipefd[0], buf1, BUFFER_SIZE)) > 0) // totally wrong! this may read a message and half. fingers crossed.
+    {
+        buf1[size] = '\0'; // first make it a valid C string.
+
+        // there may be more than one message queued in the pipe. I really can't hope for this one not to happen, 'cause it actually did!
+        char *message = strtok(buf1, "\n");
+        while(message)
+        {
+            time_t curtime;
+            char *strtime;
+#if 0 // CS306
+            time(&curtime);
+            strtime = ctime(&curtime);
+            strtime[strlen(strtime) - 1] = '\0'; // deletes that annoying \n at the end
+#else // CS491
+            char buf3[BUFFER_SIZE];
+            char buf4[BUFFER_SIZE];
+            struct timeval tv;
+            gettimeofday(&tv, NULL);
+            curtime = tv.tv_sec;
+            strftime(buf3, BUFFER_SIZE, "%m-%d-%Y %T.", localtime(&curtime));
+            snprintf(buf4, BUFFER_SIZE, "%s%ld", buf3, tv.tv_usec);
+            strtime = buf4;
+#endif
+            size = snprintf(buf2, BUFFER_SIZE, logformat, strtime, message);
+            fputs(buf2, log);
+            fflush(log);
+
+            message = strtok(NULL, "\n");
+        }
+    }
+
+    close(pipefd[0]);
+    if(log != stdout)
+        fclose(log);
+}
+
+//----------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
+#if 0
     if(argc != 2)
     {
         fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
         return EXIT_FAILURE;
     }
+#endif
 
     int pipefd[2];
     if( pipe(pipefd) == -1 )
@@ -292,6 +317,8 @@ int main(int argc, char **argv)
         perror("pipe");
         return EXIT_FAILURE;
     }
+
+    int first_child = -1;
 
     for(int i = 0; i < NUMBER_CLIENTS; i++)
     {
@@ -306,16 +333,24 @@ int main(int argc, char **argv)
         if(cpid == 0)
         {
             client(pipefd);
-            return EXIT_FAILURE; // just in case
+            return EXIT_FAILURE + 1; // just in case, it's worse than failure if it happens.
         }
         else
         {
-            // TODO
-            setpgid(cpid, 0);
+            if(first_child < 0) first_child = cpid;
+            /*
+             * If pgid == pid or pgid == 0 then this creates a new process group with process group leader pid.
+             * Otherwise, this puts pid into the already existing process group pgid.
+             * A zero pid refers to the current process.
+            */
+            setpgid(cpid, first_child);
         }
     }
 
-    server(pipefd, argv[1]);
+    server(pipefd, argc > 1 ? argv[1] : "");
 
-    return EXIT_FAILURE; // again, main must return an int, even if it's not going to return at all :))
+    //wait(NULL); // Wait for childs
+    killpg(first_child, SIGKILL);
+    //exit(EXIT_SUCCESS);
+    return EXIT_FAILURE;
 }
