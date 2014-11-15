@@ -204,7 +204,8 @@ void client(int *pipefd)
 
     for(int i = 1; i <= NUMBER_MESSAGES; i++)
     {
-        unsigned int delay = random();
+        unsigned int delay = 1;
+        delay = random();
         delay = (delay % MAXIMUM_SLEEP) + 1;
 
         //sleep(delay);
@@ -224,7 +225,7 @@ void client(int *pipefd)
 
         /*
         * POSIX.1-2001 says that write(2)s of less than PIPE_BUF bytes must be atomic.
-        * also it requires PIPE_BUF to be at least 512 bytes.
+        * Also it requires PIPE_BUF to be at least 512 bytes.
         * On Linux, PIPE_BUF is 4096 bytes.
        */
         int size = write(pipefd[1], buf, len);
@@ -267,7 +268,12 @@ void server(int *pipefd, char *filename)
         buf1[size] = '\0'; // first make it a valid C string.
 
         // there may be more than one message queued in the pipe. I really can't hope for this one not to happen, 'cause it actually did!
-        char *message = strtok(buf1, "\n");
+        char *message;
+#ifdef NOTOK
+        message = buf1;
+#else
+        message = strtok(buf1, "\n");
+#endif
         while(message)
         {
             time_t curtime;
@@ -289,8 +295,11 @@ void server(int *pipefd, char *filename)
             size = snprintf(buf2, BUFFER_SIZE, logformat, strtime, message);
             fputs(buf2, log);
             fflush(log);
-
+#ifdef NOTOK
+            message = NULL;
+#else
             message = strtok(NULL, "\n");
+#endif
         }
     }
 
