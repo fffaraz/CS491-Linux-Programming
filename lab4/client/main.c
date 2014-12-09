@@ -170,7 +170,7 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("\nBYE!\n");
     close(sockfd);
+    printf("\nBYE!\n");
     return 0;
 }
