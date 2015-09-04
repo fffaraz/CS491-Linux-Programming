@@ -42,7 +42,7 @@ void *get_in_addr(struct sockaddr *sa) // get sockaddr, IPv4 or IPv6:
 
 void handle_client(int sockfd)
 {
-    char *hello_msg = "<rembash2>\n";
+    const char *hello_msg = "<rembash2>\n";
     int hello_len = strlen(hello_msg);
     int bytes_sent = send(sockfd, hello_msg, hello_len, 0);
     if(bytes_sent == -1 || bytes_sent != hello_len)
@@ -62,7 +62,7 @@ void handle_client(int sockfd)
         return;
     }
 
-    char *ok_msg = "<ok>\n";
+    const char *ok_msg = "<ok>\n";
     send(sockfd, ok_msg, strlen(ok_msg), 0);
 
     /*
@@ -78,13 +78,13 @@ void handle_client(int sockfd)
 
     if(pid < 0)
     {
-        char *error_msg = "forkpty failed\n";
+        const char *error_msg = "forkpty failed\n";
         perror(error_msg);
         send(sockfd, error_msg, strlen(error_msg), 0);
         return;
     }
 
-    char *ready_msg = "<ready>\n";
+    const char *ready_msg = "<ready>\n";
     send(sockfd, ready_msg, strlen(ready_msg), 0);
 
     if(pid == 0) // child
@@ -111,7 +111,7 @@ void handle_client(int sockfd)
             if(select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1)
             {
                 perror("select");
-                return 7;
+                return;
             }
 
             if(FD_ISSET(master, &readfds))
