@@ -183,14 +183,22 @@ int main(int argc, char **argv)
         if(FD_ISSET(STDIN_FILENO, &readfds))
         {
             nbytes = read(STDIN_FILENO, buf, BUFFERSIZE);
-            if(nbytes < 1) break;
+            if(nbytes < 1)
+            {
+                perror("stdin closed");
+                break;
+            }
             send(sockfd, buf, nbytes, 0);
         }
 
         if(FD_ISSET(sockfd, &readfds))
         {
             nbytes = recv(sockfd, buf, BUFFERSIZE, 0);
-            if(nbytes < 1) break;
+            if(nbytes < 1)
+            {
+                perror("sockfd closed");
+                break;
+            }
             write(STDOUT_FILENO, buf, nbytes);
         }
     }

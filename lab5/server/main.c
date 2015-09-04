@@ -85,27 +85,29 @@ void handle_client(int sockfd)
         return;
     }
 
-    const char *ready_msg = "<ready>\n";
-    send(sockfd, ready_msg, strlen(ready_msg), 0);
-
     if(pid == 0) // child
     {
         execl("/bin/bash", "bash", "-i", "--noediting", NULL);
     }
     else
     {
+        const char *ready_msg = "<ready>\n";
+        send(sockfd, ready_msg, strlen(ready_msg), 0);
+
+        /*
         // remove the echo
         struct termios tios;
         tcgetattr(master, &tios);
         tios.c_lflag &= ~(ECHO | ECHONL);
         tcsetattr(master, TCSAFLUSH, &tios);
+        */
 
         int maxfd = master > sockfd ? master : sockfd;
 
         for(;;)
         {
             char buf[BUFFERSIZE];
-            
+
             fd_set readfds;
             FD_ZERO(&readfds);
             FD_SET(master, &readfds);
@@ -120,18 +122,26 @@ void handle_client(int sockfd)
             if(FD_ISSET(master, &readfds))
             {
                 nbytes = recv(master, buf, BUFFERSIZE, 0);
-                if(nbytes < 1) break;
+                if(nbytes < 1)
+                {
+                    perror("master closed");
+                    break;
+                }
                 write(sockfd, buf, nbytes);
             }
 
             if(FD_ISSET(sockfd, &readfds))
             {
                 nbytes = recv(sockfd, buf, BUFFERSIZE, 0);
-                if(nbytes < 1) break;
+                if(nbytes < 1)
+                {
+                    perror("sockfd closed");
+                    break;
+                }
                 write(master, buf, nbytes);
             }
         }
-    } 
+    }
 }
 
 int main(void)
