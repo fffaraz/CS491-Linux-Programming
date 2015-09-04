@@ -121,13 +121,13 @@ void handle_client(int sockfd)
 
             if(FD_ISSET(master, &readfds))
             {
-                nbytes = recv(master, buf, BUFFERSIZE, 0);
+                nbytes = read(master, buf, BUFFERSIZE);
                 if(nbytes < 1)
                 {
                     perror("master closed");
                     break;
                 }
-                write(sockfd, buf, nbytes);
+                send(sockfd, buf, nbytes, 0);
             }
 
             if(FD_ISSET(sockfd, &readfds))
