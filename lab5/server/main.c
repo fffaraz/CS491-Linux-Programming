@@ -88,7 +88,8 @@ void handle_client(int sockfd)
 
     if(pid == 0) // child
     {
-        execl("/bin/bash", "bash", "--noediting", "-i", NULL);
+        //execl("/bin/bash", "bash", "--noediting", "-i", NULL);
+        execl("/bin/bash", "bash", NULL);
     }
     else
     {
