@@ -19,7 +19,6 @@
 
 #define PORT   "5910"
 #define SECRET "<cs591secret>\n"
-
 #define BUFFERSIZE 64 * 1024
 
 struct termios saved_attributes;

@@ -24,6 +24,7 @@
 
 #define PORT   "5910"
 #define SECRET "<cs591secret>"
+#define BUFFERSIZE 64 * 1024
 
 void sigchld_handler(int s)
 {
@@ -103,6 +104,8 @@ void handle_client(int sockfd)
 
         for(;;)
         {
+            char buf[BUFFERSIZE];
+            
             fd_set readfds;
             FD_ZERO(&readfds);
             FD_SET(master, &readfds);
@@ -116,14 +119,16 @@ void handle_client(int sockfd)
 
             if(FD_ISSET(master, &readfds))
             {
-                int nbytes = sendfile(sockfd, master, NULL, 4096);
+                nbytes = recv(master, buf, BUFFERSIZE, 0);
                 if(nbytes < 1) break;
+                write(sockfd, buf, nbytes);
             }
 
             if(FD_ISSET(sockfd, &readfds))
             {
-                int nbytes = sendfile(master, sockfd, NULL, 4096);
+                nbytes = recv(sockfd, buf, BUFFERSIZE, 0);
                 if(nbytes < 1) break;
+                write(master, buf, nbytes);
             }
         }
     } 
