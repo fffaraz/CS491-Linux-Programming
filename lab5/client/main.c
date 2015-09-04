@@ -185,7 +185,7 @@ int main(int argc, char **argv)
             nbytes = read(STDIN_FILENO, buf, BUFFERSIZE);
             if(nbytes < 1)
             {
-                perror("stdin closed");
+                //perror("stdin closed");
                 break;
             }
             send(sockfd, buf, nbytes, 0);
@@ -196,7 +196,7 @@ int main(int argc, char **argv)
             nbytes = recv(sockfd, buf, BUFFERSIZE, 0);
             if(nbytes < 1)
             {
-                perror("sockfd closed");
+                //perror("sockfd closed");
                 break;
             }
             write(STDOUT_FILENO, buf, nbytes);

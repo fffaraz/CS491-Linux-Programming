@@ -75,6 +75,7 @@ void handle_client(int sockfd)
     int master;
     pid_t pid;
 
+    signal(SIGCHLD, SIG_IGN);
     pid = forkpty(&master, NULL, NULL, NULL);
 
     if(pid < 0)
@@ -87,7 +88,7 @@ void handle_client(int sockfd)
 
     if(pid == 0) // child
     {
-        execl("/bin/bash", "bash", "-i", "--noediting", NULL);
+        execl("/bin/bash", "bash", "--noediting", "-i", NULL);
     }
     else
     {
@@ -124,7 +125,7 @@ void handle_client(int sockfd)
                 nbytes = read(master, buf, BUFFERSIZE);
                 if(nbytes < 1)
                 {
-                    perror("master closed");
+                    //perror("master closed");
                     break;
                 }
                 send(sockfd, buf, nbytes, 0);
@@ -135,7 +136,7 @@ void handle_client(int sockfd)
                 nbytes = recv(sockfd, buf, BUFFERSIZE, 0);
                 if(nbytes < 1)
                 {
-                    perror("sockfd closed");
+                    //perror("sockfd closed");
                     break;
                 }
                 write(master, buf, nbytes);
