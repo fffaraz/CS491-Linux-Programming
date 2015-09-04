@@ -2,22 +2,28 @@
 // Faraz Fallahi (faraz@siu.edu)
 // with IPv6 support
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pty.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
+#include <sys/select.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include <signal.h>
+#include <sys/wait.h>
+#include <termios.h>
+#include <unistd.h>
 
-#define PORT   "3060"
-#define SECRET "<cs306rembash>"
+#define PORT   "5910"
+#define SECRET "<cs591secret>"
 
 void sigchld_handler(int s)
 {
@@ -36,7 +42,7 @@ void *get_in_addr(struct sockaddr *sa) // get sockaddr, IPv4 or IPv6:
 
 void handle_client(int sockfd)
 {
-    char *hello_msg = "<rembash>\n";
+    char *hello_msg = "<rembash2>\n";
     int hello_len = strlen(hello_msg);
     int bytes_sent = send(sockfd, hello_msg, hello_len, 0);
     if(bytes_sent == -1 || bytes_sent != hello_len)
@@ -59,16 +65,68 @@ void handle_client(int sockfd)
     char *ok_msg = "<ok>\n";
     send(sockfd, ok_msg, strlen(ok_msg), 0);
 
+    /*
     dup2(sockfd, STDIN_FILENO);
     dup2(sockfd, STDOUT_FILENO);
     dup2(sockfd, STDERR_FILENO);
+    */
+
+    int master;
+    pid_t pid;
+
+    pid = forkpty(&master, NULL, NULL, NULL);
+
+    if(pid < 0)
+    {
+        char *error_msg = "forkpty failed\n";
+        perror(error_msg);
+        send(sockfd, error_msg, strlen(error_msg), 0);
+        return;
+    }
 
     char *ready_msg = "<ready>\n";
     send(sockfd, ready_msg, strlen(ready_msg), 0);
 
-    //execlp("bash", "bash", "--noediting", "-i", NULL);
-    execl("/bin/bash", "bash", "--noediting", "-i", NULL);
-    //for(;;) { sleep(1); send(sockfd, "t", 1, 0); }
+    if(pid == 0) // child
+    {
+        execl("/bin/bash", "bash", "-i", "--noediting", NULL);
+    }
+    else
+    {
+        // remove the echo
+        struct termios tios;
+        tcgetattr(master, &tios);
+        tios.c_lflag &= ~(ECHO | ECHONL);
+        tcsetattr(master, TCSAFLUSH, &tios);
+
+        int maxfd = master > sockfd ? master : sockfd;
+
+        for(;;)
+        {
+            fd_set readfds;
+            FD_ZERO(&readfds);
+            FD_SET(master, &readfds);
+            FD_SET(sockfd, &readfds);
+
+            if(select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1)
+            {
+                perror("select");
+                return 7;
+            }
+
+            if(FD_ISSET(master, &readfds))
+            {
+                int nbytes = sendfile(sockfd, master, NULL, 4096);
+                if(nbytes < 1) break;
+            }
+
+            if(FD_ISSET(sockfd, &readfds))
+            {
+                int nbytes = sendfile(master, sockfd, NULL, 4096);
+                if(nbytes < 1) break;
+            }
+        }
+    } 
 }
 
 int main(void)
