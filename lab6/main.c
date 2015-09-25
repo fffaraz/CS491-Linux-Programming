@@ -26,36 +26,41 @@
 #define BUFFERSIZE 64 * 1024
 #define MAXEVENTS  64
 
-struct EventData
+typedef struct
 {
     int fd;
     int idx;
-};
+} EventData;
 
-union EventUnion
+typedef union
 {
     EventData d;
     __uint64_t u64;
-}
+} EventUnion;
 
-struct Client
+typedef struct 
 {
-    _Bool isvalid = 0;
-    int state = 0;
-    int socket = 0;
-    int pty = 0;
-    pid_t pid = 0;
-    unsigned long bytes_recv = 0;
-    unsigned long bytes_sent = 0;
-};
+    _Bool isvalid;
+    int state;
+    int socket;
+    int pty;
+    pid_t pid;
+    //unsigned long bytes_recv;
+    //unsigned long bytes_sent;
+} Client;
 
 #define MAXCLIENTS 100000
-struct Client clients[MAXCLIENTS];
+Client clients[MAXCLIENTS];
 
 int new_client()
 {
     static int idx = 0;
-    while(clients[idx].isvalid) idx = (idx+1) % MAXCLIENTS;
+    while(clients[idx].isvalid) idx = (idx+1) % MAXCLIENTS; // FIXME
+    clients[idx].isvalid = 1;
+    clients[idx].state = 0;
+    clients[idx].socket = 0;
+    clients[idx].pty = 0;
+    clients[idx].pid = 0;
     return idx;
 }
 
@@ -81,6 +86,7 @@ int setnonblocking(int sfd)
 
 int main(void)
 {
+    memset(clients, 0, sizeof(Client) * MAXCLIENTS);
     signal(SIGCHLD, SIG_IGN);
 
     struct addrinfo hints;
@@ -145,7 +151,7 @@ int main(void)
                 printf("Got a connection from %s [%d]\n", ipstr, clients[idx].socket);
 
                 const char hello_msg[] = "<rembash2>\n";
-                send(clients[idx].socket, hello_msg, sizeof(hello_msg), 0);
+                send(clients[idx].socket, hello_msg, sizeof(hello_msg) - 1, 0);
 
                 EventData ed;
                 ed.fd = clients[idx].socket;
@@ -165,18 +171,20 @@ int main(void)
                 if(clients[eu.d.idx].state == 0)
                 {
                     // assert(eu.d.fd == clients[eu.d.idx].socket)
-                    int nbytes = recv(eu.d.fd, buff, 255, 0); // it's not 100% guaranteed to work! must use readline.
-                    buff[nbytes - 1] = '\0';
+                    int nbytes = recv(eu.d.fd, buf, 255, 0); // it's not 100% guaranteed to work! must use readline.
+                    buf[nbytes - 1] = '\0';
                     printf("Received %s from [%d]\n", buf, eu.d.fd);
 
-                    if(strcmp(buff, SECRET) != 0)
+                    if(strcmp(buf, SECRET) != 0)
                     {
                         printf("Shared key check failed for [%d]\n", eu.d.idx);
-                        //return; FIXME TODO
+                        close(eu.d.fd);
+                        clients[eu.d.idx].isvalid = 0;
+                        continue;
                     }
 
                     const char ok_msg[] = "<ok>\n";
-                    send(clients[eu.d.idx].socket, ok_msg, sizeof(ok_msg), 0);
+                    send(eu.d.fd, ok_msg, sizeof(ok_msg) - 1, 0);
                     clients[eu.d.idx].state = 1;
 
                     clients[eu.d.idx].pid = forkpty(&clients[eu.d.idx].pty, NULL, NULL, NULL);
@@ -201,15 +209,25 @@ int main(void)
                         event.data.u64 = eu.u64;
                         epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
                         const char ready_msg[] = "<ready>\n";
-                        send(clients[eu.d.idx].socket, ready_msg, sizeof(ready_msg), 0);
+                        send(clients[eu.d.idx].socket, ready_msg, sizeof(ready_msg) - 1, 0);
                     }
                 } // if(client->state == 0)
                 else // if(client->state == 1)
                 {
                     int nbytes = read(eu.d.fd, buf, BUFFERSIZE);
-                    //if(nbytes < 1) break; TODO
-                    if(eu.d.fd == clients[eu.d.idx].socket) write(clients[eu.d.idx].pty,    buf, nbytes);
-                    if(eu.d.fd == clients[eu.d.idx].pty)    write(clients[eu.d.idx].socket, buf, nbytes);
+                    if(nbytes < 1)
+                    {
+                        printf("Cliend [%d] disconnected.\n", eu.d.idx);
+                        close(clients[eu.d.idx].socket);
+                        close(clients[eu.d.idx].pty);
+                        kill(clients[eu.d.idx].pid, SIGTERM);
+                        clients[eu.d.idx].isvalid = 0;
+                        continue;
+                    }
+                    int mbytes;
+                    if(eu.d.fd == clients[eu.d.idx].socket) mbytes = write(clients[eu.d.idx].pty,    buf, nbytes);
+                    if(eu.d.fd == clients[eu.d.idx].pty)    mbytes = write(clients[eu.d.idx].socket, buf, nbytes);
+                    // nbytes == mbytes ?
                 }
             } // if(events[n].data.fd == sockfd)
         } // for(int n = 0; n < nfd; ++n)
