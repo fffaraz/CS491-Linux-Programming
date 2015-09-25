@@ -192,18 +192,10 @@ int main(void)
 
                     if(clients[eu.d.idx].pid == 0) // child
                     {
-                        close(efd); // child doesn't need epoll
                         close(sockfd); // child doesn't need the listener
+                        close(efd); // child doesn't need epoll
                         setsid();
                         execl("/bin/bash", "bash", NULL);
-
-                        #if 1
-                            printf("Client [%d] exited.\n", eu.d.idx);
-                            close(clients[eu.d.idx].socket);
-                            close(clients[eu.d.idx].pty);
-                            clients[eu.d.idx].isvalid = 0;
-                        #endif
-                        
                         _exit(0);
                         return 0;
                     }
@@ -224,6 +216,7 @@ int main(void)
                 else // if(client->state == 1)
                 {
                     int nbytes = read(eu.d.fd, buf, BUFFERSIZE);
+                    printf("Received [%d] bytes from client [%d] on file [%d] \n", nbytes, eu.d.idx, eu.d.fd);
                     if(nbytes < 1)
                     {
                         printf("Client [%d] disconnected.\n", eu.d.idx);

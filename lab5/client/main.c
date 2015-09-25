@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     freeaddrinfo(dnsres); // frees the memory that was dynamically allocated for the linked lists by getaddrinfo
 
     char buf[BUFFERSIZE + 1];
-    int nbytes;
+    int nbytes, mbytes;
 
     readline(sockfd, buf);
     printf("Received: %s", buf);
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
                 //perror("stdin closed");
                 break;
             }
-            send(sockfd, buf, nbytes, 0);
+            mbytes = send(sockfd, buf, nbytes, 0);
         }
 
         if(FD_ISSET(sockfd, &readfds))
@@ -198,8 +198,9 @@ int main(int argc, char **argv)
                 //perror("sockfd closed");
                 break;
             }
-            write(STDOUT_FILENO, buf, nbytes);
+            mbytes = write(STDOUT_FILENO, buf, nbytes);
         }
+        if(nbytes != mbytes) printf("nbytes [%d] != mbytes [%d] \n", nbytes, mbytes);
     }
 
     close(sockfd);
