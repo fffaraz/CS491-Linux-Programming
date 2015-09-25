@@ -127,7 +127,7 @@ int main(void)
 
     int efd = epoll_create1(0);
     struct epoll_event event;
-    event.events = EPOLLIN | EPOLLET;
+    event.events = EPOLLIN; // | EPOLLET;
     event.data.fd = sockfd;
     epoll_ctl(efd, EPOLL_CTL_ADD, sockfd, &event);
 
@@ -158,7 +158,7 @@ int main(void)
                 ed.idx = idx;
                 EventUnion eu;
                 eu.d = ed;
-                event.events = EPOLLIN | EPOLLET;
+                event.events = EPOLLIN; // | EPOLLET;
                 event.data.u64 = eu.u64;
                 epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
             }
@@ -206,7 +206,7 @@ int main(void)
                         ed.idx = eu.d.idx;
                         EventUnion eu;
                         eu.d = ed;
-                        event.events = EPOLLIN | EPOLLET;
+                        event.events = EPOLLIN; // | EPOLLET;
                         event.data.u64 = eu.u64;
                         epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
                         const char ready_msg[] = "<ready>\n";
