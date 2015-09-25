@@ -38,7 +38,7 @@ typedef union
     __uint64_t u64;
 } EventUnion;
 
-typedef struct 
+typedef struct
 {
     _Bool isvalid;
     int state;
@@ -167,6 +167,7 @@ int main(void)
                 char buf[BUFFERSIZE];
                 EventUnion eu;
                 eu.u64 = events[n].data.u64;
+                id(!clients[eu.d.idx].isvalid) continue;
 
                 if(clients[eu.d.idx].state == 0)
                 {
@@ -195,6 +196,8 @@ int main(void)
                         close(sockfd); // child doesn't need the listener
                         setsid();
                         execl("/bin/bash", "bash", NULL);
+                        //close(clients[eu.d.idx].socket);
+                        //close(clients[eu.d.idx].pty);
                         _exit(0);
                         return 0;
                     }
@@ -227,7 +230,7 @@ int main(void)
                     int mbytes;
                     if(eu.d.fd == clients[eu.d.idx].socket) mbytes = write(clients[eu.d.idx].pty,    buf, nbytes);
                     if(eu.d.fd == clients[eu.d.idx].pty)    mbytes = write(clients[eu.d.idx].socket, buf, nbytes);
-                    // nbytes == mbytes ?
+                    if(nbytes != mbytes) printf("nbytes [%d] != mbytes [%d] \n", nbytes, mbytes);
                 }
             } // if(events[n].data.fd == sockfd)
         } // for(int n = 0; n < nfd; ++n)
