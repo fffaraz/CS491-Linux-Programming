@@ -144,7 +144,7 @@ int main(void)
                 struct sockaddr_storage their_addr; // connector's address information
                 socklen_t addr_size = sizeof(their_addr);
                 clients[idx].socket = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-                setnonblocking(clients[idx].socket);
+                setnonblocking(clients[idx].socket); // maybe try accept4(2)
 
                 char ipstr[INET6_ADDRSTRLEN];
                 inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ipstr, sizeof(ipstr));
