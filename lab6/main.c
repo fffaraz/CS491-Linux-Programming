@@ -167,7 +167,7 @@ int main(void)
                 char buf[BUFFERSIZE];
                 EventUnion eu;
                 eu.u64 = events[n].data.u64;
-                id(!clients[eu.d.idx].isvalid) continue;
+                if(!clients[eu.d.idx].isvalid) continue;
 
                 if(clients[eu.d.idx].state == 0)
                 {
@@ -196,8 +196,14 @@ int main(void)
                         close(sockfd); // child doesn't need the listener
                         setsid();
                         execl("/bin/bash", "bash", NULL);
-                        //close(clients[eu.d.idx].socket);
-                        //close(clients[eu.d.idx].pty);
+
+                        #if 1
+                            printf("Client [%d] exited.\n", eu.d.idx);
+                            close(clients[eu.d.idx].socket);
+                            close(clients[eu.d.idx].pty);
+                            clients[eu.d.idx].isvalid = 0;
+                        #endif
+                        
                         _exit(0);
                         return 0;
                     }
@@ -220,7 +226,7 @@ int main(void)
                     int nbytes = read(eu.d.fd, buf, BUFFERSIZE);
                     if(nbytes < 1)
                     {
-                        printf("Cliend [%d] disconnected.\n", eu.d.idx);
+                        printf("Client [%d] disconnected.\n", eu.d.idx);
                         close(clients[eu.d.idx].socket);
                         close(clients[eu.d.idx].pty);
                         kill(clients[eu.d.idx].pid, SIGTERM);
