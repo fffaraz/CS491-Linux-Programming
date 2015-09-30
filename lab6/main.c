@@ -187,14 +187,20 @@ int main(void)
                 char buf[BUFFERSIZE];
                 EventUnion eu;
                 eu.u64 = events[n].data.u64;
-                if(!clients[eu.d.idx].isvalid) continue;
+                if(!clients[eu.d.idx].isvalid)
+                {
+                    printf("Something bad happend on file [%d] for client [%d]\n", eu.d.fd, eu.d.idx);
+                    continue;
+                }
 
                 if (eu.d.fd == clients[eu.d.idx].timer)
                 {
+                    printf("Time out for [%d]\n", eu.d.idx);
                     if(clients[eu.d.idx].state == 0)
                     {
                         const char timer_msg[] = "TIMEOUT !\n";
                         send(clients[eu.d.idx].socket, timer_msg, sizeof(timer_msg) - 1, 0);
+                        printf("Client [%d] disconnected.\n", eu.d.idx);
                         close(clients[eu.d.idx].socket);
                         clients[eu.d.idx].isvalid = 0;
                     }
@@ -213,6 +219,7 @@ int main(void)
                         const char secret_msg[] = "WRONG SECRET KEY !\n";
                         send(eu.d.fd, secret_msg, sizeof(secret_msg) - 1, 0);
                         printf("Shared key check failed for [%d]\n", eu.d.idx);
+                        printf("Client [%d] disconnected.\n", eu.d.idx);
                         close(eu.d.fd);
                         clients[eu.d.idx].isvalid = 0;
                         continue;
