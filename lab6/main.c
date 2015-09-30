@@ -16,6 +16,7 @@
 #include <sys/select.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -44,6 +45,7 @@ typedef struct
     int state;
     int socket;
     int pty;
+    int timer;
     pid_t pid;
     //unsigned long bytes_recv;
     //unsigned long bytes_sent;
@@ -153,12 +155,30 @@ int main(void)
                 const char hello_msg[] = "<rembash2>\n";
                 send(clients[idx].socket, hello_msg, sizeof(hello_msg) - 1, 0);
 
+                struct itimerspec new_value;
+                struct timespec now;
+
+                clock_gettime(CLOCK_REALTIME, &now);
+                new_value.it_value.tv_sec = now.tv_sec + 10;
+                new_value.it_value.tv_nsec = now.tv_nsec;
+                new_value.it_interval.tv_sec = 0;
+                new_value.it_interval.tv_nsec = 0;
+
+                clients[idx].timer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+                timerfd_settime(clients[idx].timer, TFD_TIMER_ABSTIME, &new_value, NULL);
+
                 EventData ed;
                 ed.fd = clients[idx].socket;
                 ed.idx = idx;
                 EventUnion eu;
                 eu.d = ed;
                 event.events = EPOLLIN; // | EPOLLET;
+                event.data.u64 = eu.u64;
+                epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
+
+                ed.fd = clients[idx].timer;
+                eu.d = ed;
+                event.events = EPOLLIN | EPOLLET;
                 event.data.u64 = eu.u64;
                 epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
             }
@@ -169,6 +189,18 @@ int main(void)
                 eu.u64 = events[n].data.u64;
                 if(!clients[eu.d.idx].isvalid) continue;
 
+                if (eu.d.fd == clients[eu.d.idx].timer)
+                {
+                    if(clients[eu.d.idx].state == 0)
+                    {
+                        const char timer_msg[] = "TIMEOUT !\n";
+                        send(clients[eu.d.idx].socket, timer_msg, sizeof(timer_msg) - 1, 0);
+                        close(clients[eu.d.idx].socket);
+                        clients[eu.d.idx].isvalid = 0;
+                    }
+                    continue;
+                }
+
                 if(clients[eu.d.idx].state == 0)
                 {
                     // assert(eu.d.fd == clients[eu.d.idx].socket)
@@ -178,6 +210,8 @@ int main(void)
 
                     if(strcmp(buf, SECRET) != 0)
                     {
+                        const char secret_msg[] = "WRONG SECRET KEY !\n";
+                        send(eu.d.fd, secret_msg, sizeof(secret_msg) - 1, 0);
                         printf("Shared key check failed for [%d]\n", eu.d.idx);
                         close(eu.d.fd);
                         clients[eu.d.idx].isvalid = 0;
