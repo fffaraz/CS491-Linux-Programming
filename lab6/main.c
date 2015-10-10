@@ -75,14 +75,11 @@ void *get_in_addr(struct sockaddr *sa) // get sockaddr, IPv4 or IPv6:
 int setnonblocking(int sfd)
 {
     int flags, s;
-
     flags = fcntl(sfd, F_GETFL, 0);
     if (flags == -1) { perror("fcntl"); return -1; }
-
     flags |= O_NONBLOCK;
     s = fcntl(sfd, F_SETFL, flags);
     if (s == -1) { perror("fcntl"); return -1; }
-
     return 0;
 }
 
@@ -182,7 +179,7 @@ int main(void)
                 event.data.u64 = eu.u64;
                 epoll_ctl(efd, EPOLL_CTL_ADD, ed.fd, &event);
             }
-            else // client socket or pty
+            else // client socket or pty or timer
             {
                 char buf[BUFFERSIZE];
                 EventUnion eu;
